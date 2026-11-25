@@ -73,44 +73,90 @@ class SharedStats {
     // TODO Feature 2: declare the lock(s) protecting the three shared variables
     // above here.
     // Think about it: ONE lock for the three variables, or ONE lock PER variable?
+    // Feature 2: one lock per shared variable because the three variables are
+    // independent
+    // (finer granularity: a thread updating one counter never blocks a thread
+    // updating another one)
+    private static final ReentrantLock contextSwitchLock = new ReentrantLock();
+    private static final ReentrantLock completedLock = new ReentrantLock();
+    private static final ReentrantLock serviceTimeLock = new ReentrantLock();
     // (you must justify it in MY_WORK.md)
 
     public static void incrementContextSwitch() {
         // TODO Feature 2: protect this critical section
-        int tmp = contextSwitchCount; // 1) read
-        RaceWindow.pause(); // <- another thread can read the SAME value here
-        contextSwitchCount = tmp + 1; // 2) write (one increment is lost if someone else did the same)
+        // Feature 2: acquire the lock before the read-modify-write sequence
+        contextSwitchLock.lock();
+        try {
+            int tmp = contextSwitchCount; // 1) read
+            RaceWindow.pause(); // <- another thread can read the SAME value here
+            contextSwitchCount = tmp + 1; // 2) write (one increment is lost if someone else did the same)
+        } finally {
+            // Feature 2: always release the lock even if an exception occurs
+            contextSwitchLock.unlock();
+        }
     }
 
     public static void incrementCompletedProcess() {
         // TODO Feature 2: protect this critical section
-        int tmp = completedProcessCount;
-        RaceWindow.pause();
-        completedProcessCount = tmp + 1;
+        // Feature 2: acquire the lock before the read-modify-write sequence
+        completedLock.lock();
+        try {
+            int tmp = completedProcessCount;
+            RaceWindow.pause();
+            completedProcessCount = tmp + 1;
+        } finally {
+            // Feature 2: always release the lock even if an exception occurs
+            completedLock.unlock();
+        }
     }
 
     public static void addServiceTime(int ms) {
         // TODO Feature 2: protect this critical section
-        long tmp = totalServiceTime;
-        RaceWindow.pause();
-        totalServiceTime = tmp + ms;
+        // Feature 2: acquire the lock before the read-modify-write sequence
+        serviceTimeLock.lock();
+        try {
+            long tmp = totalServiceTime;
+            RaceWindow.pause();
+            totalServiceTime = tmp + ms;
+        } finally {
+            // Feature 2: always release the lock even if an exception occurs
+            serviceTimeLock.unlock();
+        }
     }
 
     // Readers must also be protected (a read in the middle of an update is not safe
     // either)
     public static int getCompletedProcessCount() {
         // TODO Feature 2: protect this read
-        return completedProcessCount;
+        // Feature 2: the read uses the same lock as the writer of this variable
+        completedLock.lock();
+        try {
+            return completedProcessCount;
+        } finally {
+            completedLock.unlock();
+        }
     }
 
     public static int getContextSwitchCount() {
         // TODO Feature 2: protect this read
-        return contextSwitchCount;
+        // Feature 2: the read uses the same lock as the writer of this variable
+        contextSwitchLock.lock();
+        try {
+            return contextSwitchCount;
+        } finally {
+            contextSwitchLock.unlock();
+        }
     }
 
     public static long getTotalServiceTime() {
         // TODO Feature 2: protect this read
-        return totalServiceTime;
+        // Feature 2: the read uses the same lock as the writer of this variable
+        serviceTimeLock.lock();
+        try {
+            return totalServiceTime;
+        } finally {
+            serviceTimeLock.unlock();
+        }
     }
 }
 
