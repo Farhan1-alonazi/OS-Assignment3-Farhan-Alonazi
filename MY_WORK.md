@@ -32,17 +32,17 @@
 
 | Field | Your Answer |
 |-------|-------------|
-| **Full Name** | [Write your full name here] |
-| **Student ID** | [Write your student ID here] |
-| **University Email** | [yourid]@std.psau.edu.sa |
-| **GitHub Username** | [your-github-username] |
-| **Repository Link** | [Paste your repository link here] |
+| **Full Name** | [Farhan Hussein Alonazi] |
+| **Student ID** | [446050414] |
+| **University Email** | [446050414]@std.psau.edu.sa |
+| **GitHub Username** | [Farhan1-alonazi] |
+| **Repository Link** | [https://github.com/Farhan1-alonazi/OS-Assignment3-Farhan-Alonazi.git]
  
 ---
 
 ## 🎥 Video Link
 
-**Video Link**: [Paste your video link here]
+**Video Link**: [https://youtu.be/c1n74_oJk9E]
 
 > ⚠️ **WARNING:** The video must be **publicly accessible** ("Anyone with the link can view") on **Google Drive**, **YouTube (Unlisted or Public)** or any other cloud file-sharing system. A private, restricted or broken link counts as a **missing video (-1 mark)**.
 >
@@ -132,68 +132,91 @@
 
 ## Your Development Log
 
-### Entry 1 - [Date and Time]
-**What I did**:
+### Entry 1 - [November 20, 2026, 8:00 PM]
+**What I did**: Forked the starter repository, renamed it, checked that it is public, and set my student ID.
 
 **Details**:
+ 1- Forked makopt/OS-Assignment3-Starter-481 with my university GitHub account and renamed it to OS-Assignment3-Farhan-Alonazi
+2-Checked in Settings that the repository visibility is Public
+3- Changed studentID on line 304 to 446050414
+ 4- Committed and pushed the change: I updated my Student ID at line 304
 
-**Challenges**:
+**Challenges**: I made the commit with my own message, and only later noticed that the README asks for the exact format Set my student ID: [YOUR-ID].
 
-**Solution**:
+**Solution**: I kept the commit as it was, because changing a commit that is already pushed would rewrite the history of main. I used the README's message format for all my next commits.
 
-**Time spent**:
+**Time spent**: 30 Minutes
 
 ---
 
-### Entry 2 - [Date and Time]
-**What I did**:
+### Entry 2 - [November 21, 2026, 5:30 PM]
+**What I did**: Read the README and the whole SchedulerSimulationSync.java, then ran the original starter and saved its output.
 
-**Details**:
+**Details**:My parameters: 13 processes, quantum 2000 ms, 2 CPUs
+First run: [CPU-1] picks P1 and [CPU-2] picks P1 at the same time, then IllegalThreadStateException in CPU-2, and the WATCHDOG after 27 s
+Verification: 24/26 context switches, 12/13 completed, 36970/40104 ms, 894 busy-waiting polls
+Second run: the same race, but this time CPU-1 crashed (905 polls)
+Saved both outputs for Question 1
 
-**Challenges**:
+**Challenges**: I did not understand why two CPUs picked P1, and why the ready queue printed after the picks started at P3 instead of P2. The console also showed ? instead of the symbols ➕, ▶ and →.
 
-**Solution**:
+**Solution**:I followed ReadyQueue.poll() step by step. Both CPUs read the same head (P1) during RaceWindow.pause(), so the second removeFirst() removed P2, which was never executed. 3134 ms (P2's burst time) was exactly the missing service time. The ? characters are a Windows console encoding problem, not a code problem; running chcp 65001 in the terminal fixes them.
 
-**Time spent**:
-
----
-
-### Entry 3 - [Date and Time]
-**What I did**:
-
-**Details**:
-
-**Challenges**:
-
-**Solution**:
-
-**Time spent**:
+**Time spent**: 2 hours
 
 ---
 
-### Entry 4 - [Date and Time]
-**What I did**:
+### Entry 3 - [November 25, 2026, 2:00 PM]
+**What I did**: : Feature 1. I protected the ready queue with a ReentrantLock.
 
 **Details**:
+1- Added import java.util.concurrent.locks.ReentrantLock;
+2- Declared private final ReentrantLock queueLock in ReadyQueue
+3- Wrapped the bodies of add(), poll(), processOf() and snapshot() in queueLock.lock(); try { ... } finally { queueLock.unlock(); }
+4- Committed: Feature 1: Protected the ready queue with a ReentrantLock
 
-**Challenges**:
+**Challenges**: I was not sure that snapshot() needed the lock, since it only reads, or where to put unlock() in poll(), which has two return statements.
 
-**Solution**:
+**Solution**:  snapshot() iterates over list and reads map while other CPUs can modify them, so it is a critical section too (otherwise a ConcurrentModificationException can occur). In poll() I kept both return statements inside the try, because the finally block always runs and releases the lock. After this feature, both CPUs never picked the same process again.
 
-**Time spent**:
+**Time spent**: 5 hour
 
 ---
 
-### Entry 5 - [Date and Time]
-**What I did**:
+### Entry 4 -- [November 25, 2026, 3:45 PM]
+**What I did**: : Feature 2. I protected the three shared statistics with one ReentrantLock per variable.
 
-**Details**:
+**Details**: 
+1- Declared contextSwitchLock, completedLock and serviceTimeLock in SharedStats
+2- Protected incrementContextSwitch(), incrementCompletedProcess() and addServiceTime() with lock() and try/finally
+3- Protected the three getters with the same lock as the writer of their variable
+4- Committed: Feature 2: Added one ReentrantLock per shared statistics counter
 
-**Challenges**:
+**Challenges**: Choosing between one lock for the three counters and one lock per counter.
 
-**Solution**:
+**Solution**: The three variables are independent: no method updates two of them together. With separate locks, a thread adding service time does not block a thread incrementing the context switches, and each critical section contains a 1 ms RaceWindow.pause(). I also remembered that a getter must use the same lock as the writer, otherwise it can read in the middle of an update.
 
-**Time spent**:
+**Time spent**: 1 hour
+
+---
+
+### Entry 5 - [November 25, 2026, 4:00 PM]
+**What I did**: Feature 3. I replaced busy waiting with a counting semaphore and added a clean shutdown.
+
+**Details**: 
+1- Added import java.util.concurrent.Semaphore; and declared readyCount = new Semaphore(0) in ReadyQueue
+2- Called readyCount.release() in add() after unlock()
+3- Added waitForProcess() (acquire()) and wakeUpAllCpus(n) (release(n)) to ReadyQueue
+In CpuWorker.run(): deleted the polling block (if (thread == null), Thread.sleep(20)) and replaced it with waitForProcess(), then a break if all processes are completed, then poll()
+At the end of the loop, the CPU that sees the last completion calls wakeUpAllCpus(SharedStats.totalCPUs)
+Ran the program 5 times: all four lines ✔ and Busy-waiting polls = 0
+4- ommitted: Feature 3: Replaced busy waiting with a counting semaphore and clean shutdown
+
+**Challenges**: When I saved the file, VS Code's formatter split the long comments over two lines (for example the TODO lines in CpuWorker), so the text no longer matched the original lines. I pasted the new code in the wrong place and got compile errors. I was also confused because the file has two run() methods, one in Process and one in CpuWorker.
+
+**Solution**: I located the code by line numbers inside CpuWorker.run() (line 391), not Process.run() (line 297). I replaced exactly the busy-waiting block (lines 396–409) and added the shutdown code under the last TODO comment inside the while loop, then compiled and ran it 5 times. I also understood why the break must come before poll(): a CPU woken by the shutdown signal has no process to take.
+
+**Time spent**: 5 Hour
 
 ---
 
@@ -214,13 +237,13 @@
 
 > 💡 **TIP:** Fill this in **last**, after all entries are written.
 
-**Total time spent on assignment**: [X hours]
+**Total time spent on assignment**: [13 hours]
 
-**Most challenging part**:
+**Most challenging part**: Feature 3. I had to place the semaphore code in exactly the right place in CpuWorker.run() after the formatter changed the comment lines, and understand why the CPUs need a shutdown signal to terminate.
 
-**Most interesting learning**:
+**Most interesting learning**: The starter did not lose P1, which both CPUs read; it lost P2, which nobody read, because the second removeFirst() removed whatever was at the head at that moment. A race condition can damage data that no thread was even looking at.
 
-**What I would do differently next time**:
+**What I would do differently next time**: Start much earlier, write the log entry at the end of each session, and turn off format-on-save before editing code that I have to match line by line.
 
 ---
 
@@ -240,15 +263,24 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
-
+I learned that a race condition happens when threads change shared data and the result depends on their order.
+An increment like contextSwitchCount is really three steps (read, add, write), so a thread can be interrupted in the middle.
+Code that uses shared data is a critical section and needs mutual exclusion, progress and bounded waiting.
+I used ReentrantLock and always put unlock() in finally so the lock is released even after a return.
+A counting semaphore counts the processes in the ready queue and blocks a CPU instead of letting it busy-wait.
+What surprised me was that the starter lost P2, a process that no CPU even read.
 ## Question 2: What was the most challenging part of this assignment?
 
 > 💡 **TIP:** Pick **one** specific challenge (understanding why the starter failed, choosing the lock granularity, the initial value of the semaphore, the shutdown of the CPUs, Git, the video) and say *why* it was hard.
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
+The most challenging part was Feature 3, especially stopping the CPUs at the end.
+After the last process finishes, nobody calls release(), so a CPU in acquire() would wait forever.
+The CPU that sees the last completion must call release(totalCPUs), and a woken CPU must break before poll().
+VS Code also split the long comments into two lines, so I pasted my code in the wrong place and got errors.
+It was confusing that there are two run() methods, and only the one in CpuWorker had to change.
+A mistake here does not give a wrong number, the program just hangs until the watchdog stops it.
 
 ## Question 3: How did you overcome the challenges you faced?
 
@@ -256,15 +288,23 @@
 
 **Your Answer:** *(5-7 sentences)*
 
-[Write your answer here.]
-
+I ran the original starter several times and saw that both CPUs picked P1 and P2 disappeared.
+I traced poll() on paper with CPU-1 and CPU-2 and found that the second removeFirst() removed P2.
+I added the features one by one and ran the program 5 times after each one before committing.
+For Feature 3, I used line numbers inside CpuWorker.run() to replace only the busy-waiting block.
+I re-read the Chapter 5 slides to understand that a blocked wait() needs a signal() to wake up.
+I also made sure that I never call acquire() while holding queueLock, to avoid a deadlock.
 ## Question 4: Where can synchronization concepts be applied in real-world applications?
 
 > 💡 **TIP:** Use real applications you know (banking and money transfers, ticket or seat booking, a shared counter on a website, a print queue, a database) and connect each one to what you built here (shared data, critical section, lock or semaphore).
 
 **Your Answer:** *(5-7 sentences)*
-
-[Write your answer here.]
+The operating system itself shares ready queues between CPU cores, just like my CpuWorker threads.
+In banking, two transfers on the same account can lose money like contextSwitchCount lost updates, so they need a lock.
+In seat booking, checking and reserving a seat must be atomic, or two people get the same seat like two CPUs got P1.
+A web server with worker threads and a request queue is a producer-consumer system that uses semaphores.
+A print spooler uses a counting semaphore for the jobs waiting to be printed.
+Databases choose between table locks and row locks, the same granularity choice I made for the statistics.
 
 ### Optional: What would you like to learn more about?
 
@@ -298,20 +338,37 @@
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
-
+In my starter run, all four values were wrong: 24/26, 12/13, 36970/40104 ms and 894 polls.
+Both CPUs picked P1, CPU-2 crashed, and P2 was lost (its 3134 ms and 2 quanta are missing).
+This is a race in poll(): reading and removing the head are separated by RaceWindow.pause().
+On a real machine, the OS can preempt a thread at the same point, or two cores run in parallel.
+It is hard to detect because the window is tiny, so the bug appears rarely and randomly.
 Verification block of the **original starter**:
 ```
-[Paste the verification block (or the exception/watchdog message) of the starter here]
+═══ VERIFICATION (expected values are computed from YOUR seed) ═══
+  Context switches (quanta executed)     expected 26       observed 24       ✘ MISMATCH
+  Completed processes                    expected 13       observed 12       ✘ MISMATCH
+  Total service time (ms)                expected 40104    observed 36970    ✘ MISMATCH
+  Busy-waiting polls (must be 0)         expected 0        observed 894      ✘ MISMATCH
+  ✘ At least one check failed (see the ✘ lines above): a race condition or busy waiting is still present.
 ```
 
 Verification block of **my final version**:
 ```
-[Paste the verification block of your final version here (all lines ✔)]
+═══ VERIFICATION (expected values are computed from YOUR seed) ═══
+  Context switches (quanta executed)     expected 26       observed 26       ✔
+  Completed processes                    expected 13       observed 13       ✔
+  Total service time (ms)                expected 40104    observed 40104    ✔
+  Busy-waiting polls (must be 0)         expected 0        observed 0        ✔
+  ✔ All shared values are consistent.
 ```
 
 **Explanation of the timeline:**
-[Explain the lost update step by step.]
+CPU-1 reads contextSwitchCount = 12 into tmp, then is preempted in RaceWindow.pause().
+CPU-2 reads the same value 12 into its own tmp, then is also paused.
+CPU-1 writes tmp + 1 = 13.
+CPU-2 writes tmp + 1 = 13, overwriting CPU-1's write.
+Two quanta started but the counter grew by only 1, so one update is lost; contextSwitchLock fixes this by making read, pause and write one critical section.
 
 ## Question 2: Critical Sections and Lock Granularity
 
@@ -321,7 +378,11 @@ Verification block of **my final version**:
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
+queueLock protects the ready queue, and each counter has its own mutex lock.
+I used one lock per variable because the three counters are independent.
+The trade-off is more concurrency, but more locks and no snapshot of all three at once.
+The queue has its own lock so a CPU never waits during a slow counter update.
+Locks give mutual exclusion and progress, but a non-fair lock cannot guarantee bounded waiting.
 
 | Critical section (variable / method) | Lock used | Why it needs protection |
 |---|---|---|
@@ -336,7 +397,11 @@ Verification block of **my final version**:
 
 **Your Answer:** *(3-5 sentences)*
 
-[Write your answer here.]
+In the starter, an idle CPU slept 20 ms and polled again: 894 busy-waiting polls.
+In my version, an idle CPU is blocked in acquire() and uses no CPU time.
+readyCount is the number of processes waiting in the queue, and it starts at 0 (empty queue).
+After the 13 initial add() calls, its value is 13.
+The last CPU calls release(totalCPUs) to wake the blocked CPUs, or they would wait forever.
 
 ## Question 4: Classical Problems and Deadlock
 
@@ -347,24 +412,23 @@ Verification block of **my final version**:
 **Your Answer:** *(3-5 sentences)*
 
 **Classical problem and roles**:
-[Name the problem; who is the producer, who is the consumer?]
-
+It is the producer-consumer (bounded-buffer) problem, and the ready queue is the buffer.
+Producers: main and the CPUs that re-enqueue; consumers: the CPUs that take a process.
 **Semaphores for a bounded queue (name and initial value)**:
-[Name the three semaphores and their initial values.]
-
+mutex = 1, empty = K and full = 0.
 **Deadlock scenario and prevention**:
-[Describe the scenario and the necessary condition you would break.]
-
+A producer holding the mutex waits on empty, while the consumer waits on the mutex: deadlock.
+I would break hold-and-wait: wait on the semaphore first, then take the mutex.
 ## Summary
 
 **Key concepts I understood through these questions:**
-1.
-2.
-3.
+1.A non-atomic read-modify-write causes a race condition, and a lock fixes it.
+2.Independent variables can have separate locks for more concurrency.
+3.A semaphore blocks threads instead of busy waiting.
 
 **Concepts I need to study more:**
-1.
-2.
+1. Fair locks and starvation.
+2. Monitors and condition variables.
 
 ---
 
